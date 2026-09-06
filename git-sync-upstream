@@ -59,10 +59,11 @@ error_handler() {
 }
 
 show_usage() {
-  echo "Usage: $0 [-h] [-b]" >&2
+  echo "Usage: $0 [-h] [-b] [-t]" >&2
   echo
   echo "  -h    Show this help message and exit"
   echo "  -b    Run in batch mode (skip interactive confirmations)"
+  echo "  -t    Synchronize tags from upstream to origin"
 }
 
 main() {
@@ -70,8 +71,9 @@ main() {
   set -o errtrace
 
   BATCH_MODE=0
+  SYNC_TAGS=0
 
-  while getopts ":hb" opt; do
+  while getopts ":hbt" opt; do
     case "$opt" in
     h)
       show_usage
@@ -79,6 +81,9 @@ main() {
       ;;
     b)
       BATCH_MODE=1
+      ;;
+    t)
+      SYNC_TAGS=1
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -116,8 +121,16 @@ main() {
 
   git pull -q --rebase upstream "$CURRENT_BRANCH"
 
+  if [[ $SYNC_TAGS -eq 1 ]]; then
+    git fetch -q upstream --tags
+  fi
+
   if git diff --quiet "origin/$CURRENT_BRANCH" "$CURRENT_BRANCH" 2>/dev/null; then
-    echo "Nothing to do."
+    if [[ $SYNC_TAGS -eq 1 ]]; then
+      git push origin --tags
+    else
+      echo "Nothing to do."
+    fi
     exit 0
   fi
 
@@ -133,6 +146,10 @@ main() {
 
   git merge "upstream/$CURRENT_BRANCH" --ff-only --quiet
   git push origin "$CURRENT_BRANCH" --force
+
+  if [[ $SYNC_TAGS -eq 1 ]]; then
+    git push origin --tags
+  fi
 }
 
 main "$@"
